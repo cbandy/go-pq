@@ -3,7 +3,6 @@ package pq
 import (
 	"bytes"
 	"database/sql/driver"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"strconv"
@@ -343,69 +342,18 @@ func formatTs(t time.Time) (b []byte) {
 // "escape" format are supported.
 func parseBytea(s []byte) (result []byte) {
 	if len(s) >= 2 && bytes.Equal(s[:2], []byte("\\x")) {
-		// bytea_output = hex
-		s = s[2:] // trim off leading "\\x"
-		result = make([]byte, hex.DecodedLen(len(s)))
-		_, err := hex.Decode(result, s)
-		if err != nil {
-			errorf("%s", err)
-		}
-	} else {
-		// bytea_output = escape
-		for len(s) > 0 {
-			if s[0] == '\\' {
-				// escaped '\\'
-				if len(s) >= 2 && s[1] == '\\' {
-					result = append(result, '\\')
-					s = s[2:]
-					continue
-				}
-
-				// '\\' followed by an octal number
-				if len(s) < 4 {
-					errorf("invalid bytea sequence %v", s)
-				}
-				r, err := strconv.ParseInt(string(s[1:4]), 8, 9)
-				if err != nil {
-					errorf("could not parse bytea value: %s", err.Error())
-				}
-				result = append(result, byte(r))
-				s = s[4:]
-			} else {
-				// We hit an unescaped, raw byte.  Try to read in as many as
-				// possible in one go.
-				i := bytes.IndexByte(s, '\\')
-				if i == -1 {
-					result = append(result, s...)
-					break
-				}
-				result = append(result, s[:i]...)
-				s = s[i:]
-			}
-		}
+		return decodeByteaHex(s)
 	}
 
-	return result
+	return decodeByteaEscape(s)
 }
 
 func encodeBytea(serverVersion int, v []byte) (result []byte) {
 	if serverVersion >= 90000 {
-		// Use the hex format if we know that the server supports it
-		result = []byte(fmt.Sprintf("\\x%x", v))
-	} else {
-		// .. or resort to "escape"
-		for _, b := range v {
-			if b == '\\' {
-				result = append(result, '\\', '\\')
-			} else if b < 0x20 || b > 0x7e {
-				result = append(result, []byte(fmt.Sprintf("\\%03o", b))...)
-			} else {
-				result = append(result, b)
-			}
-		}
+		return encodeByteaHex(v)
 	}
 
-	return result
+	return encodeByteaEscape(v)
 }
 
 // NullTime represents a time.Time that may be null. NullTime implements the
