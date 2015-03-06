@@ -17,10 +17,10 @@ type Clock struct {
 func (c *Clock) Scan(src interface{}) error {
 	switch src := src.(type) {
 	case []byte:
-		return c.scanString(string(src))
+		return c.scanBytes(src)
 
 	case string:
-		return c.scanString(src)
+		return c.scanBytes([]byte(src))
 
 	case time.Time:
 		return c.scanTime(src)
@@ -29,10 +29,11 @@ func (c *Clock) Scan(src interface{}) error {
 	return fmt.Errorf("pq: cannot convert %T to Clock", src)
 }
 
-func (c *Clock) scanString(src string) (err error) {
-	t, err := time.Parse("15:04:05", src)
+func (c *Clock) scanBytes(src []byte) (err error) {
+	hour, min, sec, nsec, err := parseTime(src)
+
 	if err == nil {
-		err = c.scanTime(t)
+		*c = Clock{Hour: hour, Minute: min, Second: sec, Nanosecond: nsec}
 	}
 
 	return

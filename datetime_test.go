@@ -60,7 +60,7 @@ func TestClockScanBytes(t *testing.T) {
 			t.Fatalf("Expected no error for %q, got %v", bytes, err)
 		}
 		if clock != tt.clock {
-			t.Errorf("Expected %+v, got %+v", tt.clock, clock)
+			t.Errorf("Expected %+v for %q, got %+v", tt.clock, bytes, clock)
 		}
 	}
 }
@@ -87,6 +87,18 @@ func TestClockScanString(t *testing.T) {
 		if clock != tt.clock {
 			t.Errorf("Expected %+v, got %+v", tt.clock, clock)
 		}
+	}
+}
+
+func TestClockScanError(t *testing.T) {
+	clock := Clock{9, 9, 9, 9}
+	err := clock.Scan("")
+
+	if err == nil {
+		t.Error("Expected error, got none")
+	}
+	if clock != (Clock{9, 9, 9, 9}) {
+		t.Errorf("Expected destination not to change, got %+v", clock)
 	}
 }
 
