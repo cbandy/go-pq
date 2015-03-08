@@ -5,6 +5,60 @@ import (
 	"testing"
 )
 
+func TestParseDateISO(t *testing.T) {
+	for _, tt := range []struct {
+		input            string
+		year, month, day int
+	}{
+		{"2001-02-03", 2001, 2, 3},
+		{"9999-99-99", 9999, 99, 99},
+		{"0000001-02-03", 1, 2, 3},
+		{"1010101-02-03", 1010101, 2, 3},
+		{"0001-02-03 BC", 0, 2, 3},
+		{"9999-99-99 BC", -9998, 99, 99},
+	} {
+		y, m, d, err := parseDateISO([]byte(tt.input))
+
+		if err != nil {
+			t.Fatalf("Expected no error for %q, got %v", tt.input, err)
+		}
+
+		if y != tt.year {
+			t.Errorf("Expected year to be %v for %q, got %v", tt.year, tt.input, y)
+		}
+		if m != tt.month {
+			t.Errorf("Expected month to be %v for %q, got %v", tt.month, tt.input, m)
+		}
+		if d != tt.day {
+			t.Errorf("Expected day to be %v for %q, got %v", tt.day, tt.input, d)
+		}
+	}
+}
+
+func TestParseDateISOError(t *testing.T) {
+	for _, tt := range []struct {
+		input, err string
+	}{
+		{"", "unexpected format"},
+		{"1234567890", "unexpected format"},
+		{"1234.67.90", "unexpected format"},
+		{"1234-67.90", "unexpected format"},
+		{"abcd-fg-ij", "expected number"},
+		{"1234-fg-ij", "expected number"},
+		{"1234-67-ij", "expected number"},
+	} {
+		_, _, _, err := parseDateISO([]byte(tt.input))
+
+		if err == nil {
+			t.Fatal("Expected error, got none")
+		}
+
+		if !strings.Contains(err.Error(), tt.err) {
+			t.Errorf("Expected error to contain %q for %q, got %q", tt.err, tt.input, err)
+		}
+	}
+}
+
 func TestParseTime(t *testing.T) {
 	for _, tt := range []struct {
 		input                            string
