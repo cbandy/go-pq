@@ -1,6 +1,7 @@
 package pq
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"fmt"
 	"time"
@@ -68,10 +69,10 @@ type Date struct {
 func (d *Date) Scan(src interface{}) error {
 	switch src := src.(type) {
 	case []byte:
-		return d.scanString(string(src))
+		return d.scanBytes(src)
 
 	case string:
-		return d.scanString(src)
+		return d.scanBytes([]byte(src))
 
 	case time.Time:
 		return d.scanTime(src)
@@ -80,22 +81,33 @@ func (d *Date) Scan(src interface{}) error {
 	return fmt.Errorf("pq: cannot convert %T to Date", src)
 }
 
-func (d *Date) scanString(src string) (err error) {
-	switch src {
-	case "-infinity":
-		*d = Date{Infinity: -1}
+func (d *Date) scanBytes(src []byte) (err error) {
+	if len(src) > 2 {
+		switch {
+		case 'n' == src[2] && bytes.Equal(src, []byte{'-', 'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
+			*d = Date{Infinity: -1}
+			return
 
-	case "infinity":
-		*d = Date{Infinity: 1}
+		case 'f' == src[2] && bytes.Equal(src, []byte{'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
+			*d = Date{Infinity: 1}
+			return
 
-	default:
-		t, err := time.Parse("2006-01-02", src)
-		if err == nil {
-			err = d.scanTime(t)
+		case '0' <= src[2] && src[2] <= '9':
+			year, month, day, err := parseDateISO(src)
+			if err == nil {
+				*d = Date{Year: year, Month: time.Month(month), Day: day}
+			}
+			return err
+
+		case '.' == src[2]:
+			return parseDateGerman(src)
+
+		case '/' == src[2]:
+			return parseDateSQL(src)
 		}
 	}
 
-	return
+	return parseDatePostgres(src)
 }
 
 func (d *Date) scanTime(src time.Time) error {

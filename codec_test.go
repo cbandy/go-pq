@@ -50,7 +50,7 @@ func TestParseDateISOError(t *testing.T) {
 		_, _, _, err := parseDateISO([]byte(tt.input))
 
 		if err == nil {
-			t.Fatal("Expected error, got none")
+			t.Fatalf("Expected error for %q, got none", tt.input)
 		}
 
 		if !strings.Contains(err.Error(), tt.err) {

@@ -17,6 +17,10 @@ func parseAtoI(src []byte, errFunc func([]byte) error) (i int, err error) {
 	return
 }
 
+func parseDateGerman(src []byte) error {
+	return fmt.Errorf("pq: unable to parse date; unexpected format for %q; not implemented", src)
+}
+
 // parseDateISO extracts the components of a date in the format
 // `yyyy{y...}-mm-dd{...}[ BC]`. Any other format results in an error.
 func parseDateISO(src []byte) (year, month, day int, err error) {
@@ -48,6 +52,14 @@ func parseDateISO(src []byte) (year, month, day int, err error) {
 	}
 
 	return
+}
+
+func parseDatePostgres(src []byte) error {
+	return fmt.Errorf("pq: unable to parse date; ambiguous format for %q", src)
+}
+
+func parseDateSQL(src []byte) error {
+	return fmt.Errorf("pq: unable to parse date; ambiguous format for %q", src)
 }
 
 // parseTime extracts the components of a time in the format

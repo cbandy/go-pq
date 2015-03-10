@@ -123,7 +123,7 @@ func TestClockValue(t *testing.T) {
 	}
 }
 
-func TestDateScanUnsupported(t *testing.T) {
+func TestDateScanUnsupportedType(t *testing.T) {
 	var date Date
 	err := date.Scan(true)
 
@@ -132,6 +132,29 @@ func TestDateScanUnsupported(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "bool to Date") {
 		t.Errorf("Expected type to be mentioned when scanning, got %q", err)
+	}
+}
+
+func TestDateScanUnsupportedFormat(t *testing.T) {
+	for _, tt := range []struct {
+		input, err string
+	}{
+		{`02/03/2001`, "ambiguous format"}, // SQL, MDY
+		{`03/02/2001`, "ambiguous format"}, // SQL, DMY
+		{`02-03-2001`, "ambiguous format"}, // Postgres, MDY
+		{`03-02-2001`, "ambiguous format"}, // Postgres, DMY
+		{`03.02.2001`, "not implemented"},  // German
+	} {
+		date := Date{9, 9, 9, 9}
+		err := date.Scan(tt.input)
+
+		if err == nil {
+			t.Fatal("Expected error, got none")
+		}
+
+		if !strings.Contains(err.Error(), tt.err) {
+			t.Errorf("Expected error to contain %q for %q, got %q", tt.err, tt.input, err)
+		}
 	}
 }
 
@@ -144,6 +167,15 @@ func TestDateScanTime(t *testing.T) {
 	}
 	if date != (Date{Year: 2001, Month: 2, Day: 3}) {
 		t.Errorf("Expected 2001-02-03, got %v", date)
+	}
+}
+
+func BenchmarkDateScanTime(b *testing.B) {
+	var date Date
+	var x, _ interface{} = time.Parse("2006-01-02", `2001-02-03`)
+
+	for i := 0; i < b.N; i++ {
+		date.Scan(x)
 	}
 }
 
@@ -166,8 +198,30 @@ func TestDateScanBytes(t *testing.T) {
 			t.Fatalf("Expected no error for %q, got %v", bytes, err)
 		}
 		if date != tt.date {
-			t.Errorf("Expected %+v, got %+v", tt.date, date)
+			t.Errorf("Expected %+v for %q, got %+v", tt.date, bytes, date)
 		}
+	}
+}
+
+func BenchmarkDateScanBytesISO(b *testing.B) {
+	var date Date
+	var x interface{} = []byte(`2001-02-03`)
+	var y interface{} = []byte(`2001-02-03 BC`)
+
+	for i := 0; i < b.N; i++ {
+		date.Scan(x)
+		date.Scan(y)
+	}
+}
+
+func BenchmarkDateScanBytesInfinity(b *testing.B) {
+	var date Date
+	var x interface{} = []byte(`-infinity`)
+	var y interface{} = []byte(`infinity`)
+
+	for i := 0; i < b.N; i++ {
+		date.Scan(x)
+		date.Scan(y)
 	}
 }
 
