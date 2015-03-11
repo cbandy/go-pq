@@ -138,6 +138,60 @@ type Timestamp struct {
 	Clock
 }
 
+// Scan implements the sql.Scanner interface.
+func (t *Timestamp) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return t.scanBytes(src)
+
+	case string:
+		return t.scanBytes([]byte(src))
+
+	case time.Time:
+		return t.scanTime(src)
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to Timestamp", src)
+}
+
+func (t *Timestamp) scanBytes(src []byte) (err error) {
+	if len(src) > 2 {
+		switch {
+		case 'n' == src[2] && bytes.Equal(src, []byte{'-', 'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
+			t.Date = Date{Infinity: -1}
+			t.Clock = Clock{}
+			return
+
+		case 'f' == src[2] && bytes.Equal(src, []byte{'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
+			t.Date = Date{Infinity: 1}
+			t.Clock = Clock{}
+			return
+
+		case '0' <= src[2] && src[2] <= '9':
+			year, month, day, hour, min, sec, nsec, err := parseTimestampISO(src)
+			if err == nil {
+				t.Date = Date{Year: year, Month: time.Month(month), Day: day}
+				t.Clock = Clock{Hour: hour, Minute: min, Second: sec, Nanosecond: nsec}
+			}
+			return err
+
+		case '.' == src[2]:
+			return parseDateGerman(src)
+
+		case '/' == src[2]:
+			return parseDateSQL(src)
+		}
+	}
+
+	return parseTimestampPostgres(src)
+}
+
+func (t *Timestamp) scanTime(src time.Time) error {
+	t.Date.scanTime(src)
+	t.Clock.scanTime(src)
+	return nil
+}
+
 // TimestampTZ represents a value of the PostgreSQL `timestamp with time zone`
 // type. It implements the sql.Scanner interface so it can be used as a scan
 // destination.

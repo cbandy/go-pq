@@ -5,7 +5,9 @@ import (
 	"fmt"
 )
 
-func parseAtoI(src []byte, errFunc func([]byte) error) (i int, err error) {
+type parseErrorFunc func([]byte) error
+
+func parseAtoI(src []byte, errFunc parseErrorFunc) (i int, err error) {
 	for _, c := range src {
 		i *= 10
 		if '0' <= c && c <= '9' {
@@ -22,15 +24,34 @@ func parseDateGerman(src []byte) error {
 }
 
 // parseDateISO extracts the components of a date in the format
-// `yyyy{y...}-mm-dd{...}[ BC]`. Any other format results in an error.
+// `yyyy{y...}-mm-dd[ BC]`. Any other format results in an error.
 func parseDateISO(src []byte) (year, month, day int, err error) {
 	errAtoI := func(src []byte) error {
 		return fmt.Errorf("pq: unable to parse date; expected number at %q", src)
 	}
+	errFormat := func(src []byte) error {
+		return fmt.Errorf("pq: unable to parse date; unexpected format for %q", src)
+	}
 
+	year, month, day, unparsed, err := parseDatePortionISO(src, errAtoI, errFormat)
+	if err != nil {
+		return
+	}
+
+	if len(unparsed) > 0 {
+		err = errFormat(src)
+		return
+	}
+
+	return
+}
+
+// parseDatePortionISO extracts the date components of a value in the format
+// `yyyy{y...}-mm-dd{...}[ BC]`. Any other format results in an error.
+func parseDatePortionISO(src []byte, errAtoI, errFormat parseErrorFunc) (year, month, day int, remaining []byte, err error) {
 	sepYearMonth := bytes.IndexByte(src, '-')
 	if len(src) < 10 || sepYearMonth < 0 || src[sepYearMonth+3] != '-' {
-		err = fmt.Errorf("pq: unable to parse date; unexpected format for %q", src)
+		err = errFormat(src)
 		return
 	}
 
@@ -44,11 +65,16 @@ func parseDateISO(src []byte) (year, month, day int, err error) {
 		return
 	}
 
+	remaining = src[sepYearMonth+6:]
+
 	// Dates before the current era are suffixed with " BC"
 	if src[len(src)-3] == ' ' && src[len(src)-2] == 'B' && src[len(src)-1] == 'C' {
 		// Negate the year and add one.
 		// See http://www.postgresql.org/docs/current/static/datetime-input-rules.html
 		year = 1 - year
+
+		// Remove suffix
+		remaining = remaining[:len(remaining)-3]
 	}
 
 	return
@@ -106,4 +132,33 @@ func parseTime(src []byte) (hour, minute, second, nanosecond int, err error) {
 	}
 
 	return
+}
+
+// parseTimestampISO extracts the components of a timestamp in the format
+// `yyyy{y...}-mm-dd hh:mm:ss[.n{n...}][ BC]`. Any other format results in
+// an error.
+func parseTimestampISO(src []byte) (year, month, day, hour, minute, second, nanosecond int, err error) {
+	errAtoI := func(src []byte) error {
+		return fmt.Errorf("pq: unable to parse timestamp; expected number at %q", src)
+	}
+	errFormat := func(src []byte) error {
+		return fmt.Errorf("pq: unable to parse timestamp; unexpected format for %q", src)
+	}
+
+	year, month, day, unparsed, err := parseDatePortionISO(src, errAtoI, errFormat)
+	if err != nil {
+		return
+	}
+
+	if len(unparsed) < 1 || unparsed[0] != ' ' {
+		err = errFormat(src)
+		return
+	}
+
+	hour, minute, second, nanosecond, err = parseTime(unparsed[1:])
+	return
+}
+
+func parseTimestampPostgres(src []byte) error {
+	return fmt.Errorf("pq: unable to parse timestamp; unexpected format for %q; not implemented", src)
 }

@@ -251,3 +251,143 @@ func TestDateValue(t *testing.T) {
 		}
 	}
 }
+
+func TestTimestampScanUnsupportedType(t *testing.T) {
+	var ts Timestamp
+	err := ts.Scan(true)
+
+	if err == nil {
+		t.Fatal("Expected error when scanning from bool")
+	}
+	if !strings.Contains(err.Error(), "bool to Timestamp") {
+		t.Errorf("Expected type to be mentioned when scanning, got %q", err)
+	}
+}
+
+func TestTimestampScanUnsupportedFormat(t *testing.T) {
+	for _, tt := range []struct {
+		input, err string
+	}{
+		{`02/03/2001 04:05:06.007`, "ambiguous format"},     // SQL, MDY
+		{`03/02/2001 04:05:06.007`, "ambiguous format"},     // SQL, DMY
+		{`Sat Feb 03 04:05:06.007 2001`, "not implemented"}, // Postgres, MDY
+		{`Sat 03 Feb 04:05:06.007 2001`, "not implemented"}, // Postgres, DMY
+		{`03.02.2001 04:05:06.007`, "not implemented"},      // German
+	} {
+		ts := Timestamp{Date{9, 9, 9, 9}, Clock{9, 9, 9, 9}}
+		err := ts.Scan(tt.input)
+
+		if err == nil {
+			t.Fatal("Expected error for %q, got none", tt.input)
+		}
+
+		if !strings.Contains(err.Error(), tt.err) {
+			t.Errorf("Expected error to contain %q for %q, got %q", tt.err, tt.input, err)
+		}
+	}
+}
+
+func TestTimestampScanTime(t *testing.T) {
+	ts := Timestamp{Date{9, 9, 9, 9}, Clock{9, 9, 9, 9}}
+	err := ts.Scan(time.Date(2001, time.February, 3, 4, 5, 6, 7, time.UTC))
+
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if ts != (Timestamp{
+		Date{Year: 2001, Month: time.February, Day: 3},
+		Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7},
+	}) {
+		t.Errorf("Expected 2001-02-03 04:05:06.000000007, got %+v", ts)
+	}
+}
+
+func BenchmarkTimestampScanTime(b *testing.B) {
+	var ts Timestamp
+	var x, _ interface{} = time.Parse("2006-01-02 15:04:05", `2001-02-03 04:05:06`)
+	var y, _ interface{} = time.Parse("2006-01-02 15:04:05", `2001-02-03 04:05:06.007008`)
+
+	for i := 0; i < b.N; i++ {
+		ts.Scan(x)
+		ts.Scan(y)
+	}
+}
+
+var TimestampStringTests = []struct {
+	str       string
+	timestamp Timestamp
+}{
+	{`infinity`, Timestamp{Date: Date{Infinity: 1}}},
+	{`-infinity`, Timestamp{Date: Date{Infinity: -1}}},
+	{`2001-02-03 04:05:06`,
+		Timestamp{
+			Date:  Date{Year: 2001, Month: 2, Day: 3},
+			Clock: Clock{Hour: 4, Minute: 5, Second: 6}}},
+	{`2001-02-03 04:05:06.007`,
+		Timestamp{
+			Date:  Date{Year: 2001, Month: 2, Day: 3},
+			Clock: Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7000000}}},
+	{`2001-02-03 04:05:06 BC`,
+		Timestamp{
+			Date:  Date{Year: -2000, Month: 2, Day: 3},
+			Clock: Clock{Hour: 4, Minute: 5, Second: 6}}},
+	{`2001-02-03 04:05:06.007 BC`,
+		Timestamp{
+			Date:  Date{Year: -2000, Month: 2, Day: 3},
+			Clock: Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7000000}}},
+}
+
+func TestTimestampScanBytes(t *testing.T) {
+	for _, tt := range TimestampStringTests {
+		bytes := []byte(tt.str)
+		ts := Timestamp{Date{9, 9, 9, 9}, Clock{9, 9, 9, 9}}
+		err := ts.Scan(bytes)
+
+		if err != nil {
+			t.Fatalf("Expected no error for %q, got %v", bytes, err)
+		}
+		if ts != tt.timestamp {
+			t.Errorf("Expected %+v for %q, got %+v", tt.timestamp, bytes, ts)
+		}
+	}
+}
+
+func BenchmarkTimestampScanBytesISO(b *testing.B) {
+	var ts Timestamp
+	var w interface{} = []byte(`2001-02-03 04:05:06`)
+	var x interface{} = []byte(`2001-02-03 04:05:06.007008`)
+	var y interface{} = []byte(`2001-02-03 04:05:06 BC`)
+	var z interface{} = []byte(`2001-02-03 04:05:06.007008 BC`)
+
+	for i := 0; i < b.N; i++ {
+		ts.Scan(w)
+		ts.Scan(x)
+		ts.Scan(y)
+		ts.Scan(z)
+	}
+}
+
+func BenchmarkTimestampScanBytesInfinity(b *testing.B) {
+	var ts Timestamp
+	var x interface{} = []byte(`-infinity`)
+	var y interface{} = []byte(`infinity`)
+
+	for i := 0; i < b.N; i++ {
+		ts.Scan(x)
+		ts.Scan(y)
+	}
+}
+
+func TestTimestampScanString(t *testing.T) {
+	for _, tt := range TimestampStringTests {
+		ts := Timestamp{Date{9, 9, 9, 9}, Clock{9, 9, 9, 9}}
+		err := ts.Scan(tt.str)
+
+		if err != nil {
+			t.Fatalf("Expected no error for %q, got %v", tt.str, err)
+		}
+		if ts != tt.timestamp {
+			t.Errorf("Expected %+v for %q, got %+v", tt.timestamp, tt.str, ts)
+		}
+	}
+}
