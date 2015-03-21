@@ -58,6 +58,10 @@ func TestParseDateISOError(t *testing.T) {
 		if !strings.Contains(err.Error(), tt.err) {
 			t.Errorf("Expected error to contain %q for %q, got %q", tt.err, tt.input, err)
 		}
+
+		if !strings.Contains(err.Error(), tt.input) {
+			t.Errorf("Expected error to contain %q, got %q", tt.input, err)
+		}
 	}
 }
 
@@ -104,9 +108,10 @@ func TestParseTimeError(t *testing.T) {
 		{"ab:de:gh", "expected number"},
 		{"12:de:gh", "expected number"},
 		{"12:45:gh", "expected number"},
-		{"12:45:789", "expected '.'"},
+		{"12:45:789", "unexpected format"},
 		{"12:45:78.", "expected number"},
 		{"12:45:78.xyz", "expected number"},
+		{"12:45:78.0000000009", "unexpected format"},
 	} {
 		_, _, _, _, err := parseTime([]byte(tt.input))
 
@@ -116,6 +121,10 @@ func TestParseTimeError(t *testing.T) {
 
 		if !strings.Contains(err.Error(), tt.err) {
 			t.Errorf("Expected error to contain %q for %q, got %q", tt.err, tt.input, err)
+		}
+
+		if !strings.Contains(err.Error(), tt.input) {
+			t.Errorf("Expected error to contain %q, got %q", tt.input, err)
 		}
 	}
 }
@@ -180,6 +189,10 @@ func TestParseTimestampISOError(t *testing.T) {
 
 		if !strings.Contains(err.Error(), tt.err) {
 			t.Errorf("Expected error to contain %q for %q, got %q", tt.err, tt.input, err)
+		}
+
+		if !strings.Contains(err.Error(), tt.input) {
+			t.Errorf("Expected error to contain %q, got %q", tt.input, err)
 		}
 	}
 }
@@ -269,6 +282,10 @@ func TestParseTimestamptzISOError(t *testing.T) {
 
 		if !strings.Contains(err.Error(), tt.err) {
 			t.Errorf("Expected error to contain %q for %q, got %q", tt.err, tt.input, err)
+		}
+
+		if !strings.Contains(err.Error(), tt.input) {
+			t.Errorf("Expected error to contain %q, got %q", tt.input, err)
 		}
 	}
 }

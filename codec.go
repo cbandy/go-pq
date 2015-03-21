@@ -26,10 +26,10 @@ func parseDateGerman(src []byte) error {
 // parseDateISO extracts the components of a date in the format
 // `yyyy{y...}-mm-dd[ BC]`. Any other format results in an error.
 func parseDateISO(src []byte) (year, month, day int, err error) {
-	errAtoI := func(src []byte) error {
-		return fmt.Errorf("pq: unable to parse date; expected number at %q", src)
+	errAtoI := func(pos []byte) error {
+		return fmt.Errorf("pq: unable to parse date; expected number at %q in %q", pos, src)
 	}
-	errFormat := func(src []byte) error {
+	errFormat := func([]byte) error {
 		return fmt.Errorf("pq: unable to parse date; unexpected format for %q", src)
 	}
 
@@ -136,12 +136,21 @@ func parseOffsetPortionISO(src []byte, errAtoI, errFormat parseErrorFunc) (offse
 // parseTime extracts the components of a time in the format
 // `hh:mm:ss[.n{n...}]`. Any other format results in an error.
 func parseTime(src []byte) (hour, minute, second, nanosecond int, err error) {
-	errAtoI := func(src []byte) error {
-		return fmt.Errorf("pq: unable to parse time; expected number at %q", src)
+	errAtoI := func(pos []byte) error {
+		return fmt.Errorf("pq: unable to parse time; expected number at %q in %q", pos, src)
+	}
+	errFormat := func([]byte) error {
+		return fmt.Errorf("pq: unable to parse time; unexpected format for %q", src)
 	}
 
+	return parseTimePortion(src, errAtoI, errFormat)
+}
+
+// parseTimePortion extracts the time components of a value in the format
+// `hh:mm:ss[.n{n...}]`. Any other format results in an error.
+func parseTimePortion(src []byte, errAtoI, errFormat parseErrorFunc) (hour, minute, second, nanosecond int, err error) {
 	if len(src) < 8 || src[2] != ':' || src[5] != ':' {
-		err = fmt.Errorf("pq: unable to parse time; unexpected format for %q", src)
+		err = errFormat(src)
 		return
 	}
 
@@ -156,8 +165,8 @@ func parseTime(src []byte) (hour, minute, second, nanosecond int, err error) {
 	}
 
 	if len(src) > 8 {
-		if src[8] != '.' {
-			err = fmt.Errorf("pq: unable to parse time; expected '.' in %q", src)
+		if src[8] != '.' || len(src) > 18 {
+			err = errFormat(src)
 			return
 		}
 
@@ -183,10 +192,10 @@ func parseTime(src []byte) (hour, minute, second, nanosecond int, err error) {
 // `yyyy{y...}-mm-dd hh:mm:ss[.n{n...}][ BC]`. Any other format results in
 // an error.
 func parseTimestampISO(src []byte) (year, month, day, hour, minute, second, nanosecond int, err error) {
-	errAtoI := func(src []byte) error {
-		return fmt.Errorf("pq: unable to parse timestamp; expected number at %q", src)
+	errAtoI := func(pos []byte) error {
+		return fmt.Errorf("pq: unable to parse timestamp; expected number at %q in %q", pos, src)
 	}
-	errFormat := func(src []byte) error {
+	errFormat := func([]byte) error {
 		return fmt.Errorf("pq: unable to parse timestamp; unexpected format for %q", src)
 	}
 
@@ -200,7 +209,7 @@ func parseTimestampISO(src []byte) (year, month, day, hour, minute, second, nano
 		return
 	}
 
-	hour, minute, second, nanosecond, err = parseTime(unparsed[1:])
+	hour, minute, second, nanosecond, err = parseTimePortion(unparsed[1:], errAtoI, errFormat)
 	return
 }
 
@@ -212,10 +221,10 @@ func parseTimestampPostgres(src []byte) error {
 // `yyyy{y...}-mm-dd hh:mm:ss[.n{n...}]±hh[:mm[:ss]][ BC]`. Any other format
 // results in an error.
 func parseTimestamptzISO(src []byte) (year, month, day, hour, minute, second, nanosecond, offset int, err error) {
-	errAtoI := func(src []byte) error {
-		return fmt.Errorf("pq: unable to parse timestamptz; expected number at %q", src)
+	errAtoI := func(pos []byte) error {
+		return fmt.Errorf("pq: unable to parse timestamptz; expected number at %q in %q", pos, src)
 	}
-	errFormat := func(src []byte) error {
+	errFormat := func([]byte) error {
 		return fmt.Errorf("pq: unable to parse timestamptz; unexpected format for %q", src)
 	}
 
@@ -234,6 +243,6 @@ func parseTimestamptzISO(src []byte) (year, month, day, hour, minute, second, na
 		return
 	}
 
-	hour, minute, second, nanosecond, err = parseTime(unparsed[1:])
+	hour, minute, second, nanosecond, err = parseTimePortion(unparsed[1:], errAtoI, errFormat)
 	return
 }

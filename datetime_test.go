@@ -240,6 +240,18 @@ func TestDateScanString(t *testing.T) {
 	}
 }
 
+func TestDateScanError(t *testing.T) {
+	date := Date{9, 9, 9, 9}
+	err := date.Scan("")
+
+	if err == nil {
+		t.Error("Expected error, got none")
+	}
+	if date != (Date{9, 9, 9, 9}) {
+		t.Errorf("Expected destination not to change, got %+v", date)
+	}
+}
+
 func TestDateValue(t *testing.T) {
 	for _, tt := range DateStringTests {
 		value, err := tt.date.Value()
@@ -393,6 +405,18 @@ func TestTimestampScanString(t *testing.T) {
 	}
 }
 
+func TestTimestampScanError(t *testing.T) {
+	ts := Timestamp{Date{9, 9, 9, 9}, Clock{9, 9, 9, 9}}
+	err := ts.Scan("")
+
+	if err == nil {
+		t.Error("Expected error, got none")
+	}
+	if ts != (Timestamp{Date{9, 9, 9, 9}, Clock{9, 9, 9, 9}}) {
+		t.Errorf("Expected destination not to change, got %+v", ts)
+	}
+}
+
 func TestTimestampTZScanUnsupportedType(t *testing.T) {
 	var tstz TimestampTZ
 	err := tstz.Scan(true)
@@ -520,5 +544,18 @@ func TestTimestampTZScanString(t *testing.T) {
 		if !reflect.DeepEqual(tstz, tt.timestamptz) {
 			t.Errorf("Expected %+v for %q, got %+v", tt.timestamptz, tt.str, tstz)
 		}
+	}
+}
+
+func TestTimestampScanTZError(t *testing.T) {
+	now := time.Now()
+	tstz := TimestampTZ{9, now}
+	err := tstz.Scan("")
+
+	if err == nil {
+		t.Error("Expected error, got none")
+	}
+	if !reflect.DeepEqual(tstz, TimestampTZ{9, now}) {
+		t.Errorf("Expected destination not to change, got %+v", tstz)
 	}
 }
