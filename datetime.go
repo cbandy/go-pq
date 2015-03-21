@@ -202,3 +202,56 @@ type TimestampTZ struct {
 	Infinity int
 	Time     time.Time
 }
+
+// Scan implements the sql.Scanner interface.
+func (t *TimestampTZ) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return t.scanBytes(src)
+
+	case string:
+		return t.scanBytes([]byte(src))
+
+	case time.Time:
+		t.Infinity = 0
+		t.Time = src
+		return nil
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to TimestampTZ", src)
+}
+
+func (t *TimestampTZ) scanBytes(src []byte) (err error) {
+	if len(src) > 2 {
+		switch {
+		case 'n' == src[2] && bytes.Equal(src, []byte{'-', 'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
+			t.Infinity = -1
+			t.Time = time.Time{}
+			return
+
+		case 'f' == src[2] && bytes.Equal(src, []byte{'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
+			t.Infinity = 1
+			t.Time = time.Time{}
+			return
+
+		case '0' <= src[2] && src[2] <= '9':
+			year, month, day, hour, min, sec, nsec, offset, err := parseTimestamptzISO(src)
+			if err == nil {
+				t.Infinity = 0
+				t.Time = time.Date(
+					year, time.Month(month), day,
+					hour, min, sec, nsec,
+					time.FixedZone("", offset))
+			}
+			return err
+
+		case '.' == src[2]:
+			return parseDateGerman(src)
+
+		case '/' == src[2]:
+			return parseDateSQL(src)
+		}
+	}
+
+	return parseTimestampPostgres(src)
+}

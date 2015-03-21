@@ -1,6 +1,7 @@
 package pq
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -388,6 +389,136 @@ func TestTimestampScanString(t *testing.T) {
 		}
 		if ts != tt.timestamp {
 			t.Errorf("Expected %+v for %q, got %+v", tt.timestamp, tt.str, ts)
+		}
+	}
+}
+
+func TestTimestampTZScanUnsupportedType(t *testing.T) {
+	var tstz TimestampTZ
+	err := tstz.Scan(true)
+
+	if err == nil {
+		t.Fatal("Expected error when scanning from bool")
+	}
+	if !strings.Contains(err.Error(), "bool to TimestampTZ") {
+		t.Errorf("Expected type to be mentioned when scanning, got %q", err)
+	}
+}
+
+func TestTimestampTZScanUnsupportedFormat(t *testing.T) {
+	for _, tt := range []struct {
+		input, err string
+	}{
+		{`02/03/2001 04:05:06.007 CST`, "ambiguous format"},     // SQL, MDY
+		{`03/02/2001 04:05:06.007 CST`, "ambiguous format"},     // SQL, DMY
+		{`Sat Feb 03 04:05:06.007 2001 CST`, "not implemented"}, // Postgres, MDY
+		{`Sat 03 Feb 04:05:06.007 2001 CST`, "not implemented"}, // Postgres, DMY
+		{`03.02.2001 04:05:06.007 CST`, "not implemented"},      // German
+	} {
+		tstz := TimestampTZ{9, time.Now()}
+		err := tstz.Scan(tt.input)
+
+		if err == nil {
+			t.Fatal("Expected error for %q, got none", tt.input)
+		}
+
+		if !strings.Contains(err.Error(), tt.err) {
+			t.Errorf("Expected error to contain %q for %q, got %q", tt.err, tt.input, err)
+		}
+	}
+}
+
+func TestTimestampTZScanTime(t *testing.T) {
+	tstz := TimestampTZ{9, time.Now()}
+	tt := time.Date(2001, time.February, 3, 4, 5, 6, 7, time.UTC)
+	err := tstz.Scan(tt)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if tstz != (TimestampTZ{Time: tt}) {
+		t.Errorf("Expected 2001-02-03 04:05:06.000000007, got %+v", tstz)
+	}
+}
+
+func BenchmarkTimestampTZScanTime(b *testing.B) {
+	var tstz TimestampTZ
+	var x, _ interface{} = time.Parse("2006-01-02 15:04:05 MST", `2001-02-03 04:05:06 CET`)
+	var y, _ interface{} = time.Parse("2006-01-02 15:04:05 MST", `2001-02-03 04:05:06.007008 CET`)
+
+	for i := 0; i < b.N; i++ {
+		tstz.Scan(x)
+		tstz.Scan(y)
+	}
+}
+
+var TimestampTZStringTests = []struct {
+	str         string
+	timestamptz TimestampTZ
+}{
+	{`infinity`, TimestampTZ{Infinity: 1}},
+	{`-infinity`, TimestampTZ{Infinity: -1}},
+	{`2001-02-03 04:05:06-08:09:10`,
+		TimestampTZ{Time: time.Date(2001, time.February, 3, 4, 5, 6, 0, time.FixedZone("", -8*3600-9*60-10))}},
+	{`2001-02-03 04:05:06.007-08:09:10`,
+		TimestampTZ{Time: time.Date(2001, time.February, 3, 4, 5, 6, 7000000, time.FixedZone("", -8*3600-9*60-10))}},
+	{`2001-02-03 04:05:06-08:09:10 BC`,
+		TimestampTZ{Time: time.Date(-2000, time.February, 3, 4, 5, 6, 0, time.FixedZone("", -8*3600-9*60-10))}},
+	{`2001-02-03 04:05:06.007-08:09:10 BC`,
+		TimestampTZ{Time: time.Date(-2000, time.February, 3, 4, 5, 6, 7000000, time.FixedZone("", -8*3600-9*60-10))}},
+}
+
+func TestTimestampTZScanBytes(t *testing.T) {
+	for _, tt := range TimestampTZStringTests {
+		bytes := []byte(tt.str)
+		tstz := TimestampTZ{9, time.Now()}
+		err := tstz.Scan(bytes)
+
+		if err != nil {
+			t.Fatalf("Expected no error for %q, got %v", bytes, err)
+		}
+		if !reflect.DeepEqual(tstz, tt.timestamptz) {
+			t.Errorf("Expected %+v for %q, got %+v", tt.timestamptz, bytes, tstz)
+		}
+	}
+}
+
+func BenchmarkTimestampTZScanBytesISO(b *testing.B) {
+	var tstz TimestampTZ
+	var w interface{} = []byte(`2001-02-03 04:05:06-09:10:11`)
+	var x interface{} = []byte(`2001-02-03 04:05:06.007008-09:10:11`)
+	var y interface{} = []byte(`2001-02-03 04:05:06-09:10:11 BC`)
+	var z interface{} = []byte(`2001-02-03 04:05:06.007008-09:10:11 BC`)
+
+	for i := 0; i < b.N; i++ {
+		tstz.Scan(w)
+		tstz.Scan(x)
+		tstz.Scan(y)
+		tstz.Scan(z)
+	}
+}
+
+func BenchmarkTimestampTZScanBytesInfinity(b *testing.B) {
+	var tstz TimestampTZ
+	var x interface{} = []byte(`-infinity`)
+	var y interface{} = []byte(`infinity`)
+
+	for i := 0; i < b.N; i++ {
+		tstz.Scan(x)
+		tstz.Scan(y)
+	}
+}
+
+func TestTimestampTZScanString(t *testing.T) {
+	for _, tt := range TimestampTZStringTests {
+		tstz := TimestampTZ{9, time.Now()}
+		err := tstz.Scan(tt.str)
+
+		if err != nil {
+			t.Fatalf("Expected no error for %q, got %v", tt.str, err)
+		}
+		if !reflect.DeepEqual(tstz, tt.timestamptz) {
+			t.Errorf("Expected %+v for %q, got %+v", tt.timestamptz, tt.str, tstz)
 		}
 	}
 }

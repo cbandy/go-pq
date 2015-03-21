@@ -88,6 +88,51 @@ func parseDateSQL(src []byte) error {
 	return fmt.Errorf("pq: unable to parse date; ambiguous format for %q", src)
 }
 
+// parseOffsetPortionISO extracts the offset component, in seconds, of a value
+// in the format `{...}±hh[:mm[:ss]]`. Any other format results in an error.
+func parseOffsetPortionISO(src []byte, errAtoI, errFormat parseErrorFunc) (offset int, remaining []byte, err error) {
+	switch {
+	case len(src) >= 9 && src[len(src)-6] == ':' && src[len(src)-3] == ':':
+		var second int
+		if second, err = parseAtoI(src[len(src)-2:], errAtoI); err != nil {
+			return
+		}
+		offset += second
+		src = src[:len(src)-3]
+		fallthrough
+
+	case len(src) >= 6 && src[len(src)-3] == ':':
+		var minute int
+		if minute, err = parseAtoI(src[len(src)-2:], errAtoI); err != nil {
+			return
+		}
+		offset += 60 * minute
+		src = src[:len(src)-3]
+		fallthrough
+
+	case len(src) >= 3:
+		var hour int
+		if hour, err = parseAtoI(src[len(src)-2:], errAtoI); err != nil {
+			return
+		}
+		offset += 3600 * hour
+		if src[len(src)-3] == '-' {
+			offset = -offset
+		} else if src[len(src)-3] != '+' {
+			err = errFormat(src)
+			return
+		}
+		src = src[:len(src)-3]
+
+	default:
+		err = errFormat(src)
+		return
+	}
+
+	remaining = src
+	return
+}
+
 // parseTime extracts the components of a time in the format
 // `hh:mm:ss[.n{n...}]`. Any other format results in an error.
 func parseTime(src []byte) (hour, minute, second, nanosecond int, err error) {
@@ -161,4 +206,34 @@ func parseTimestampISO(src []byte) (year, month, day, hour, minute, second, nano
 
 func parseTimestampPostgres(src []byte) error {
 	return fmt.Errorf("pq: unable to parse timestamp; unexpected format for %q; not implemented", src)
+}
+
+// parseTimestamptzISO extracts the components of a timestamptz in the format
+// `yyyy{y...}-mm-dd hh:mm:ss[.n{n...}]±hh[:mm[:ss]][ BC]`. Any other format
+// results in an error.
+func parseTimestamptzISO(src []byte) (year, month, day, hour, minute, second, nanosecond, offset int, err error) {
+	errAtoI := func(src []byte) error {
+		return fmt.Errorf("pq: unable to parse timestamptz; expected number at %q", src)
+	}
+	errFormat := func(src []byte) error {
+		return fmt.Errorf("pq: unable to parse timestamptz; unexpected format for %q", src)
+	}
+
+	year, month, day, unparsed, err := parseDatePortionISO(src, errAtoI, errFormat)
+	if err != nil {
+		return
+	}
+
+	offset, unparsed, err = parseOffsetPortionISO(unparsed, errAtoI, errFormat)
+	if err != nil {
+		return
+	}
+
+	if len(unparsed) < 1 || unparsed[0] != ' ' {
+		err = errFormat(src)
+		return
+	}
+
+	hour, minute, second, nanosecond, err = parseTime(unparsed[1:])
+	return
 }
