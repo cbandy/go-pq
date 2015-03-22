@@ -30,14 +30,12 @@ func (c *Clock) Scan(src interface{}) error {
 	return fmt.Errorf("pq: cannot convert %T to Clock", src)
 }
 
-func (c *Clock) scanBytes(src []byte) (err error) {
+func (c *Clock) scanBytes(src []byte) error {
 	hour, min, sec, nsec, err := parseTime(src)
-
 	if err == nil {
 		*c = Clock{Hour: hour, Minute: min, Second: sec, Nanosecond: nsec}
 	}
-
-	return
+	return err
 }
 
 func (c *Clock) scanTime(src time.Time) error {
@@ -51,6 +49,29 @@ func (c *Clock) scanTime(src time.Time) error {
 // Value implements the driver.Valuer interface.
 func (c Clock) Value() (driver.Value, error) {
 	return fmt.Sprintf("%02d:%02d:%02d.%09d", c.Hour, c.Minute, c.Second, c.Nanosecond), nil
+}
+
+func detectDateStyle(src []byte, infinite func(int) error, iso, german, sql, postgres func([]byte) error) error {
+	if len(src) > 2 {
+		switch {
+		case 'n' == src[2] && bytes.Equal(src, []byte{'-', 'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
+			return infinite(-1)
+
+		case 'f' == src[2] && bytes.Equal(src, []byte{'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
+			return infinite(1)
+
+		case '0' <= src[2] && src[2] <= '9':
+			return iso(src)
+
+		case '.' == src[2]:
+			return german(src)
+
+		case '/' == src[2]:
+			return sql(src)
+		}
+	}
+
+	return postgres(src)
 }
 
 // Date represents a value of the PostgreSQL `date` type. It implements the
@@ -81,33 +102,25 @@ func (d *Date) Scan(src interface{}) error {
 	return fmt.Errorf("pq: cannot convert %T to Date", src)
 }
 
-func (d *Date) scanBytes(src []byte) (err error) {
-	if len(src) > 2 {
-		switch {
-		case 'n' == src[2] && bytes.Equal(src, []byte{'-', 'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
-			*d = Date{Infinity: -1}
-			return
+func (d *Date) scanBytes(src []byte) error {
+	return detectDateStyle(src,
+		func(infinity int) error {
+			*d = Date{Infinity: infinity}
+			return nil
+		},
 
-		case 'f' == src[2] && bytes.Equal(src, []byte{'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
-			*d = Date{Infinity: 1}
-			return
-
-		case '0' <= src[2] && src[2] <= '9':
+		func(src []byte) error {
 			year, month, day, err := parseDateISO(src)
 			if err == nil {
 				*d = Date{Year: year, Month: time.Month(month), Day: day}
 			}
 			return err
+		},
 
-		case '.' == src[2]:
-			return parseDateGerman(src)
-
-		case '/' == src[2]:
-			return parseDateSQL(src)
-		}
-	}
-
-	return parseDatePostgres(src)
+		parseDateGerman,
+		parseDateSQL,
+		parseDatePostgres,
+	)
 }
 
 func (d *Date) scanTime(src time.Time) error {
@@ -154,36 +167,27 @@ func (t *Timestamp) Scan(src interface{}) error {
 	return fmt.Errorf("pq: cannot convert %T to Timestamp", src)
 }
 
-func (t *Timestamp) scanBytes(src []byte) (err error) {
-	if len(src) > 2 {
-		switch {
-		case 'n' == src[2] && bytes.Equal(src, []byte{'-', 'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
-			t.Date = Date{Infinity: -1}
+func (t *Timestamp) scanBytes(src []byte) error {
+	return detectDateStyle(src,
+		func(infinity int) error {
+			t.Date = Date{Infinity: infinity}
 			t.Clock = Clock{}
-			return
+			return nil
+		},
 
-		case 'f' == src[2] && bytes.Equal(src, []byte{'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
-			t.Date = Date{Infinity: 1}
-			t.Clock = Clock{}
-			return
-
-		case '0' <= src[2] && src[2] <= '9':
+		func(src []byte) error {
 			year, month, day, hour, min, sec, nsec, err := parseTimestampISO(src)
 			if err == nil {
 				t.Date = Date{Year: year, Month: time.Month(month), Day: day}
 				t.Clock = Clock{Hour: hour, Minute: min, Second: sec, Nanosecond: nsec}
 			}
 			return err
+		},
 
-		case '.' == src[2]:
-			return parseDateGerman(src)
-
-		case '/' == src[2]:
-			return parseDateSQL(src)
-		}
-	}
-
-	return parseTimestampPostgres(src)
+		parseDateGerman,
+		parseDateSQL,
+		parseTimestampPostgres,
+	)
 }
 
 func (t *Timestamp) scanTime(src time.Time) error {
@@ -221,20 +225,15 @@ func (t *TimestampTZ) Scan(src interface{}) error {
 	return fmt.Errorf("pq: cannot convert %T to TimestampTZ", src)
 }
 
-func (t *TimestampTZ) scanBytes(src []byte) (err error) {
-	if len(src) > 2 {
-		switch {
-		case 'n' == src[2] && bytes.Equal(src, []byte{'-', 'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
-			t.Infinity = -1
+func (t *TimestampTZ) scanBytes(src []byte) error {
+	return detectDateStyle(src,
+		func(infinity int) error {
+			t.Infinity = infinity
 			t.Time = time.Time{}
-			return
+			return nil
+		},
 
-		case 'f' == src[2] && bytes.Equal(src, []byte{'i', 'n', 'f', 'i', 'n', 'i', 't', 'y'}):
-			t.Infinity = 1
-			t.Time = time.Time{}
-			return
-
-		case '0' <= src[2] && src[2] <= '9':
+		func(src []byte) error {
 			year, month, day, hour, min, sec, nsec, offset, err := parseTimestamptzISO(src)
 			if err == nil {
 				t.Infinity = 0
@@ -244,14 +243,10 @@ func (t *TimestampTZ) scanBytes(src []byte) (err error) {
 					time.FixedZone("", offset))
 			}
 			return err
+		},
 
-		case '.' == src[2]:
-			return parseDateGerman(src)
-
-		case '/' == src[2]:
-			return parseDateSQL(src)
-		}
-	}
-
-	return parseTimestampPostgres(src)
+		parseDateGerman,
+		parseDateSQL,
+		parseTimestampPostgres,
+	)
 }
