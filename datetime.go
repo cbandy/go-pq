@@ -48,7 +48,7 @@ func (c *Clock) scanTime(src time.Time) error {
 
 // Value implements the driver.Valuer interface.
 func (c Clock) Value() (driver.Value, error) {
-	return fmt.Sprintf("%02d:%02d:%02d.%09d", c.Hour, c.Minute, c.Second, c.Nanosecond), nil
+	return appendTime(nil, c.Hour, c.Minute, c.Second, c.Nanosecond), nil
 }
 
 func detectDateStyle(src []byte, infinite func(int) error, iso, german, sql, postgres func([]byte) error) error {

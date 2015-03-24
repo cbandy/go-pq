@@ -108,7 +108,7 @@ func TestClockValue(t *testing.T) {
 		str   string
 		clock Clock
 	}{
-		{`04:05:06.000000000`, Clock{Hour: 4, Minute: 5, Second: 6}},
+		{`04:05:06`, Clock{Hour: 4, Minute: 5, Second: 6}},
 		{`04:05:06.007000000`, Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7000000}},
 		{`04:05:06.000007000`, Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7000}},
 		{`04:05:06.000000007`, Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7}},
@@ -118,7 +118,7 @@ func TestClockValue(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected no error for %q, got %v", tt.clock, err)
 		}
-		if value != tt.str {
+		if string(value.([]byte)) != tt.str {
 			t.Errorf("Expected %v, got %v", tt.str, value)
 		}
 	}
