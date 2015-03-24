@@ -6,6 +6,25 @@ import (
 	"time"
 )
 
+func TestAppendDateISO(t *testing.T) {
+	for _, tt := range []struct {
+		result           string
+		year, month, day int
+	}{
+		{"0001-02-03", 1, 2, 3},
+		{"2001-02-03", 2001, 2, 3},
+		{"9999-99-99", 9999, 99, 99},
+		{"1010101-02-03", 1010101, 2, 3},
+		{"0001-02-03 BC", 0, 2, 3},
+		{"9999-99-99 BC", -9998, 99, 99},
+	} {
+		result := appendDateISO([]byte{'x'}, tt.year, tt.month, tt.day)
+		if string(result) != "x"+tt.result {
+			t.Errorf("Expected %q to be appended for %v-%v-%v, got %q", tt.result, tt.year, tt.month, tt.day, result)
+		}
+	}
+}
+
 func TestAppendTime(t *testing.T) {
 	for _, tt := range []struct {
 		result                           string

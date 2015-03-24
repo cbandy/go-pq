@@ -3,7 +3,40 @@ package pq
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 )
+
+// appendDate appends a date in the `yyyy{y...}-mm-dd[ BC]` format to the
+// buffer and returns the extended buffer.
+func appendDateISO(b []byte, year, month, day int) []byte {
+	bc := false
+	if year <= 0 {
+		// Negate the year and add one.
+		// See http://www.postgresql.org/docs/current/static/datetime-input-rules.html
+		year = 1 - year
+		bc = true
+	}
+
+	i := len(b)
+	if year <= 9999 {
+		b = append(b, "0000-00-00"...)
+		writeDecimal(b[i:i+4], year)
+		i += 4
+	} else {
+		b = strconv.AppendUint(b, uint64(year), 10)
+		i = len(b)
+		b = append(b, "-00-00"...)
+	}
+
+	writeDecimal(b[i+1:i+3], month)
+	writeDecimal(b[i+4:i+6], day)
+
+	if bc {
+		b = append(b, " BC"...)
+	}
+
+	return b
+}
 
 // appendTime appends a time in the `hh:mm:ss[.nnnnnnnnn]` format to the
 // buffer and returns the extended buffer.

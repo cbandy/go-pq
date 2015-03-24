@@ -275,6 +275,28 @@ func TestDateValue(t *testing.T) {
 	}
 }
 
+func BenchmarkDateValue(b *testing.B) {
+	x := Date{Year: 2001, Month: 2, Day: 3}
+	y := Date{Year: 10000, Month: 2, Day: 3}
+	z := Date{Year: -10000, Month: 2, Day: 3}
+
+	for i := 0; i < b.N; i++ {
+		x.Value()
+		y.Value()
+		z.Value()
+	}
+}
+
+func BenchmarkDateValueInfinity(b *testing.B) {
+	x := Date{Infinity: -1}
+	y := Date{Infinity: 1}
+
+	for i := 0; i < b.N; i++ {
+		x.Value()
+		y.Value()
+	}
+}
+
 func TestTimestampScanUnsupportedType(t *testing.T) {
 	var ts Timestamp
 	err := ts.Scan(true)
