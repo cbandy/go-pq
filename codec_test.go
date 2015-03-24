@@ -6,6 +6,24 @@ import (
 	"time"
 )
 
+func TestAppendTime(t *testing.T) {
+	for _, tt := range []struct {
+		result                           string
+		hour, minute, second, nanosecond int
+	}{
+		{"01:02:03", 1, 2, 3, 0},
+		{"99:99:99", 99, 99, 99, 0},
+		{"11:12:13.405060000", 11, 12, 13, 405060000},
+		{"11:12:13.000004000", 11, 12, 13, 4000},
+		{"11:12:13.000000004", 11, 12, 13, 4},
+	} {
+		result := appendTime([]byte{'x'}, tt.hour, tt.minute, tt.second, tt.nanosecond)
+		if string(result) != "x"+tt.result {
+			t.Errorf("Expected %q to be appended for %v:%v:%v.%v, got %q", tt.result, tt.hour, tt.minute, tt.second, tt.nanosecond, result)
+		}
+	}
+}
+
 func TestParseDateISO(t *testing.T) {
 	for _, tt := range []struct {
 		input            string

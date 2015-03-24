@@ -5,6 +5,25 @@ import (
 	"fmt"
 )
 
+// appendTime appends a time in the `hh:mm:ss[.nnnnnnnnn]` format to the
+// buffer and returns the extended buffer.
+func appendTime(b []byte, hour, minute, second, nanosecond int) []byte {
+	i := len(b)
+
+	if nanosecond == 0 {
+		b = append(b, "00:00:00"...)
+	} else {
+		b = append(b, "00:00:00.000000000"...)
+		writeDecimal(b[i+9:i+18], nanosecond)
+	}
+
+	writeDecimal(b[i+0:i+2], hour)
+	writeDecimal(b[i+3:i+5], minute)
+	writeDecimal(b[i+6:i+8], second)
+
+	return b
+}
+
 type parseErrorFunc func([]byte) error
 
 func parseAtoI(src []byte, errFunc parseErrorFunc) (i int, err error) {
@@ -245,4 +264,14 @@ func parseTimestamptzISO(src []byte) (year, month, day, hour, minute, second, na
 
 	hour, minute, second, nanosecond, err = parseTimePortion(unparsed[1:], errAtoI, errFormat)
 	return
+}
+
+// writeDecimal fills the destination buffer with the decimal representation of
+// non-negative integer v. Values that do not fit are silently truncated.
+func writeDecimal(dst []byte, v int) {
+	for i := len(dst) - 1; i >= 0; i-- {
+		q := v / 10
+		dst[i] = byte('0' + (v - q*10))
+		v = q
+	}
 }

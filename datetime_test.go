@@ -124,6 +124,16 @@ func TestClockValue(t *testing.T) {
 	}
 }
 
+func BenchmarkClockValue(b *testing.B) {
+	x := Clock{Hour: 4, Minute: 5, Second: 6}
+	y := Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7000}
+
+	for i := 0; i < b.N; i++ {
+		x.Value()
+		y.Value()
+	}
+}
+
 func TestDateScanUnsupportedType(t *testing.T) {
 	var date Date
 	err := date.Scan(true)
