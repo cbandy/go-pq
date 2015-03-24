@@ -131,6 +131,8 @@ func (d *Date) scanTime(src time.Time) error {
 
 // Value implements the driver.Valuer interface.
 func (d Date) Value() (driver.Value, error) {
+	const BufferSize = len("4713-01-01 BC")
+
 	switch {
 	case d.Infinity < 0:
 		return "-infinity", nil
@@ -139,7 +141,9 @@ func (d Date) Value() (driver.Value, error) {
 		return "infinity", nil
 
 	default:
-		return fmt.Sprintf("%04d-%02d-%02d", d.Year, d.Month, d.Day), nil
+		// Start with a buffer large enough for most dates
+		b := make([]byte, 0, BufferSize)
+		return appendDateISO(b, d.Year, int(d.Month), d.Day), nil
 	}
 }
 

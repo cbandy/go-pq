@@ -197,6 +197,7 @@ var DateStringTests = []struct {
 	{`infinity`, Date{Infinity: 1}},
 	{`-infinity`, Date{Infinity: -1}},
 	{`2001-02-03`, Date{Year: 2001, Month: 2, Day: 3}},
+	{`4000-05-06 BC`, Date{Year: -3999, Month: 5, Day: 6}},
 }
 
 func TestDateScanBytes(t *testing.T) {
@@ -269,8 +270,15 @@ func TestDateValue(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected no error for %q, got %v", tt.date, err)
 		}
-		if value != tt.str {
-			t.Errorf("Expected %v, got %v", tt.str, value)
+		switch v := value.(type) {
+		case string:
+			if value != tt.str {
+				t.Errorf("Expected %v, got %v", tt.str, value)
+			}
+		case []byte:
+			if value = string(v); value != tt.str {
+				t.Errorf("Expected %v, got %v", tt.str, value)
+			}
 		}
 	}
 }
@@ -278,7 +286,7 @@ func TestDateValue(t *testing.T) {
 func BenchmarkDateValue(b *testing.B) {
 	x := Date{Year: 2001, Month: 2, Day: 3}
 	y := Date{Year: 10000, Month: 2, Day: 3}
-	z := Date{Year: -10000, Month: 2, Day: 3}
+	z := Date{Year: -4000, Month: 2, Day: 3}
 
 	for i := 0; i < b.N; i++ {
 		x.Value()
