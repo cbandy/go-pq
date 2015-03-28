@@ -200,6 +200,26 @@ func (t *Timestamp) scanTime(src time.Time) error {
 	return nil
 }
 
+// Value implements the driver.Valuer interface.
+func (t Timestamp) Value() (driver.Value, error) {
+	const BufferSize = len("4713-01-01 00:00:00.000000000 BC")
+
+	switch {
+	case t.Infinity < 0:
+		return "-infinity", nil
+
+	case t.Infinity > 0:
+		return "infinity", nil
+
+	default:
+		// Start with a buffer large enough for most dates
+		b := make([]byte, 0, BufferSize)
+		return appendTimestampISO(b,
+			t.Year, int(t.Month), t.Day,
+			t.Hour, t.Minute, t.Second, t.Nanosecond), nil
+	}
+}
+
 // TimestampTZ represents a value of the PostgreSQL `timestamp with time zone`
 // type. It implements the sql.Scanner interface so it can be used as a scan
 // destination.

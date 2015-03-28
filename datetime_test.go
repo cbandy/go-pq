@@ -457,6 +457,75 @@ func TestTimestampScanError(t *testing.T) {
 	}
 }
 
+func TestTimestampValue(t *testing.T) {
+	for _, tt := range []struct {
+		str       string
+		timestamp Timestamp
+	}{
+		{`infinity`, Timestamp{Date: Date{Infinity: 1}}},
+		{`-infinity`, Timestamp{Date: Date{Infinity: -1}}},
+		{`2001-02-03 04:05:06`,
+			Timestamp{
+				Date:  Date{Year: 2001, Month: 2, Day: 3},
+				Clock: Clock{Hour: 4, Minute: 5, Second: 6}}},
+		{`2001-02-03 04:05:06.007000000`,
+			Timestamp{
+				Date:  Date{Year: 2001, Month: 2, Day: 3},
+				Clock: Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7000000}}},
+		{`2001-02-03 04:05:06 BC`,
+			Timestamp{
+				Date:  Date{Year: -2000, Month: 2, Day: 3},
+				Clock: Clock{Hour: 4, Minute: 5, Second: 6}}},
+		{`2001-02-03 04:05:06.007000000 BC`,
+			Timestamp{
+				Date:  Date{Year: -2000, Month: 2, Day: 3},
+				Clock: Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7000000}}},
+	} {
+
+		value, err := tt.timestamp.Value()
+
+		if err != nil {
+			t.Fatalf("Expected no error for %q, got %v", tt.timestamp, err)
+		}
+		switch v := value.(type) {
+		case string:
+			if value != tt.str {
+				t.Errorf("Expected %v, got %v", tt.str, value)
+			}
+		case []byte:
+			if value = string(v); value != tt.str {
+				t.Errorf("Expected %v, got %v", tt.str, value)
+			}
+		}
+	}
+}
+
+// Two allocs each. One buffer, one interface{}.
+func BenchmarkTimestampValue(b *testing.B) {
+	w := Timestamp{Date{Year: 2001, Month: 2, Day: 3}, Clock{Hour: 4, Minute: 5, Second: 6}}
+	x := Timestamp{Date{Year: 2001, Month: 2, Day: 3}, Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 700800}}
+	y := Timestamp{Date{Year: 10000, Month: 2, Day: 3}, Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 700800}}
+	z := Timestamp{Date{Year: -4000, Month: 2, Day: 3}, Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 700800}}
+
+	for i := 0; i < b.N; i++ {
+		w.Value()
+		x.Value()
+		y.Value()
+		z.Value()
+	}
+}
+
+// Two allocs each. One string, one interface{}.
+func BenchmarkTimestampValueInfinity(b *testing.B) {
+	x := Timestamp{Date: Date{Infinity: -1}}
+	y := Timestamp{Date: Date{Infinity: 1}}
+
+	for i := 0; i < b.N; i++ {
+		x.Value()
+		y.Value()
+	}
+}
+
 func TestTimestampTZScanUnsupportedType(t *testing.T) {
 	var tstz TimestampTZ
 	err := tstz.Scan(true)

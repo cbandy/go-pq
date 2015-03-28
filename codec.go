@@ -6,10 +6,14 @@ import (
 	"strconv"
 )
 
-// appendDate appends a date in the `yyyy{y...}-mm-dd[ BC]` format to the
+// appendDateISO appends a date in the `yyyy{y...}-mm-dd[ BC]` format to the
 // buffer and returns the extended buffer.
 func appendDateISO(b []byte, year, month, day int) []byte {
-	bc := false
+	b, bc := appendDatePortionISO(b, year, month, day)
+	return appendEraPortion(b, bc)
+}
+
+func appendDatePortionISO(b []byte, year, month, day int) (_ []byte, bc bool) {
 	if year <= 0 {
 		// Negate the year and add one.
 		// See http://www.postgresql.org/docs/current/static/datetime-input-rules.html
@@ -31,6 +35,10 @@ func appendDateISO(b []byte, year, month, day int) []byte {
 	writeDecimal(b[i+1:i+3], month)
 	writeDecimal(b[i+4:i+6], day)
 
+	return b, bc
+}
+
+func appendEraPortion(b []byte, bc bool) []byte {
 	if bc {
 		b = append(b, " BC"...)
 	}
@@ -55,6 +63,16 @@ func appendTime(b []byte, hour, minute, second, nanosecond int) []byte {
 	writeDecimal(b[i+6:i+8], second)
 
 	return b
+}
+
+// appendTimestampISO appends a timestamp in the
+// `yyyy{y...}-mm-dd hh:mm:ss[.nnnnnnnnn][ BC]` format to the buffer and
+// returns the extended buffer.
+func appendTimestampISO(b []byte, year, month, day, hour, minute, second, nanosecond int) []byte {
+	b, bc := appendDatePortionISO(b, year, month, day)
+	b = append(b, ' ')
+	b = appendTime(b, hour, minute, second, nanosecond)
+	return appendEraPortion(b, bc)
 }
 
 type parseErrorFunc func([]byte) error

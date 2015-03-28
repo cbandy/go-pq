@@ -20,7 +20,8 @@ func TestAppendDateISO(t *testing.T) {
 	} {
 		result := appendDateISO([]byte{'x'}, tt.year, tt.month, tt.day)
 		if string(result) != "x"+tt.result {
-			t.Errorf("Expected %q to be appended for %v-%v-%v, got %q", tt.result, tt.year, tt.month, tt.day, result)
+			t.Errorf("Expected %q to be appended for %v-%v-%v, got %q",
+				tt.result, tt.year, tt.month, tt.day, result)
 		}
 	}
 }
@@ -38,7 +39,30 @@ func TestAppendTime(t *testing.T) {
 	} {
 		result := appendTime([]byte{'x'}, tt.hour, tt.minute, tt.second, tt.nanosecond)
 		if string(result) != "x"+tt.result {
-			t.Errorf("Expected %q to be appended for %v:%v:%v.%v, got %q", tt.result, tt.hour, tt.minute, tt.second, tt.nanosecond, result)
+			t.Errorf("Expected %q to be appended for %v:%v:%v.%v, got %q",
+				tt.result, tt.hour, tt.minute, tt.second, tt.nanosecond, result)
+		}
+	}
+}
+
+func TestAppendTimestampISO(t *testing.T) {
+	for _, tt := range []struct {
+		result               string
+		year, month, day     int
+		hour, minute, second int
+		nanosecond           int
+	}{
+		{"2001-02-03 04:05:06.007000000", 2001, 2, 3, 4, 5, 6, 7000000},
+		{"9999-99-99 99:99:99", 9999, 99, 99, 99, 99, 99, 0},
+		{"0001-02-03 04:05:06.007000000 BC", 0, 2, 3, 4, 5, 6, 7000000},
+		{"9999-99-99 99:99:99 BC", -9998, 99, 99, 99, 99, 99, 0},
+	} {
+		result := appendTimestampISO([]byte{'x'},
+			tt.year, tt.month, tt.day, tt.hour, tt.minute, tt.second, tt.nanosecond)
+
+		if string(result) != "x"+tt.result {
+			t.Errorf("Expected %q to be appended for %v-%v-%v %v:%v:%v.%v, got %q", tt.result,
+				tt.year, tt.month, tt.day, tt.hour, tt.minute, tt.second, tt.nanosecond, result)
 		}
 	}
 }
