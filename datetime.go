@@ -274,3 +274,29 @@ func (t *TimestampTZ) scanBytes(src []byte) error {
 		parseTimestampPostgres,
 	)
 }
+
+// Value implements the driver.Valuer interface.
+func (t TimestampTZ) Value() (driver.Value, error) {
+	const BufferSize = len("4713-01-01 00:00:00.000000000+00:00:00 BC")
+
+	switch {
+	case t.Infinity < 0:
+		return "-infinity", nil
+
+	case t.Infinity > 0:
+		return "infinity", nil
+
+	default:
+		year, month, day := t.Time.Date()
+		hour, min, sec := t.Time.Clock()
+		nsec := t.Time.Nanosecond()
+		_, offset := t.Time.Zone()
+
+		// Start with a buffer large enough for most dates
+		b := make([]byte, 0, BufferSize)
+		return appendTimestamptzISO(b,
+			year, int(month), day,
+			hour, min, sec, nsec,
+			offset), nil
+	}
+}

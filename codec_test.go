@@ -67,6 +67,33 @@ func TestAppendTimestampISO(t *testing.T) {
 	}
 }
 
+func TestAppendTimestamptzISO(t *testing.T) {
+	offset := func(h, m, s time.Duration) int {
+		return int((h*time.Hour + m*time.Minute + s*time.Second) / time.Second)
+	}
+	for _, tt := range []struct {
+		result               string
+		year, month, day     int
+		hour, minute, second int
+		nanosecond, offset   int
+	}{
+		{"2001-02-03 04:05:06.007000000-08", 2001, 2, 3, 4, 5, 6, 7000000, offset(-8, 0, 0)},
+		{"2001-02-03 04:05:06.007000000-08:09", 2001, 2, 3, 4, 5, 6, 7000000, offset(-8, -9, 0)},
+		{"2001-02-03 04:05:06.007000000-08:09:10", 2001, 2, 3, 4, 5, 6, 7000000, offset(-8, -9, -10)},
+		{"9999-99-99 99:99:99+99:59:59", 9999, 99, 99, 99, 99, 99, 0, offset(99, 59, 59)},
+		{"0001-02-03 04:05:06.007000000+08:09:10 BC", 0, 2, 3, 4, 5, 6, 7000000, offset(8, 9, 10)},
+		{"9999-99-99 99:99:99+99:59:59 BC", -9998, 99, 99, 99, 99, 99, 0, offset(99, 59, 59)},
+	} {
+		result := appendTimestamptzISO([]byte{'x'},
+			tt.year, tt.month, tt.day, tt.hour, tt.minute, tt.second, tt.nanosecond, tt.offset)
+
+		if string(result) != "x"+tt.result {
+			t.Errorf("Expected %q to be appended for %v-%v-%v %v:%v:%v.%v %v, got %q", tt.result,
+				tt.year, tt.month, tt.day, tt.hour, tt.minute, tt.second, tt.nanosecond, tt.offset, result)
+		}
+	}
+}
+
 func TestParseDateISO(t *testing.T) {
 	for _, tt := range []struct {
 		input            string

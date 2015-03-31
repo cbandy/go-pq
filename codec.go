@@ -46,6 +46,36 @@ func appendEraPortion(b []byte, bc bool) []byte {
 	return b
 }
 
+func appendOffsetPortionISO(b []byte, offset int) []byte {
+	i := len(b)
+	b = append(b, "+00:00:00"...)
+
+	if offset < 0 {
+		b[i] = '-'
+		offset = -offset
+	}
+
+	var hour, minute, second int
+
+	if second = offset % 60; second == 0 {
+		b = b[:i+6]
+	} else {
+		writeDecimal(b[i+7:i+9], second)
+	}
+
+	offset = offset / 60
+	if minute = offset % 60; second == 0 && minute == 0 {
+		b = b[:i+3]
+	} else {
+		writeDecimal(b[i+4:i+6], minute)
+	}
+
+	hour = offset / 60
+	writeDecimal(b[i+1:i+3], hour)
+
+	return b
+}
+
 // appendTime appends a time in the `hh:mm:ss[.nnnnnnnnn]` format to the
 // buffer and returns the extended buffer.
 func appendTime(b []byte, hour, minute, second, nanosecond int) []byte {
@@ -72,6 +102,17 @@ func appendTimestampISO(b []byte, year, month, day, hour, minute, second, nanose
 	b, bc := appendDatePortionISO(b, year, month, day)
 	b = append(b, ' ')
 	b = appendTime(b, hour, minute, second, nanosecond)
+	return appendEraPortion(b, bc)
+}
+
+// appendTimestamptzISO appends a timestamptz in the
+// `yyy{y...}-mm-dd hh:mm:ss[.nnnnnnnnn]-hh[:mm[:ss]][ BC] format to the buffer
+// and returns the extended buffer.
+func appendTimestamptzISO(b []byte, year, month, day, hour, minute, second, nanosecond, offset int) []byte {
+	b, bc := appendDatePortionISO(b, year, month, day)
+	b = append(b, ' ')
+	b = appendTime(b, hour, minute, second, nanosecond)
+	b = appendOffsetPortionISO(b, offset)
 	return appendEraPortion(b, bc)
 }
 

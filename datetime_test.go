@@ -481,7 +481,6 @@ func TestTimestampValue(t *testing.T) {
 				Date:  Date{Year: -2000, Month: 2, Day: 3},
 				Clock: Clock{Hour: 4, Minute: 5, Second: 6, Nanosecond: 7000000}}},
 	} {
-
 		value, err := tt.timestamp.Value()
 
 		if err != nil {
@@ -666,5 +665,67 @@ func TestTimestampScanTZError(t *testing.T) {
 	}
 	if !reflect.DeepEqual(tstz, TimestampTZ{9, now}) {
 		t.Errorf("Expected destination not to change, got %+v", tstz)
+	}
+}
+
+func TestTimestampTZValue(t *testing.T) {
+	for _, tt := range []struct {
+		str         string
+		timestamptz TimestampTZ
+	}{
+		{`infinity`, TimestampTZ{Infinity: 1}},
+		{`-infinity`, TimestampTZ{Infinity: -1}},
+		{`2001-02-03 04:05:06-08:09:10`,
+			TimestampTZ{Time: time.Date(2001, time.February, 3, 4, 5, 6, 0, time.FixedZone("", -8*3600-9*60-10))}},
+		{`2001-02-03 04:05:06.007000000-08:09:10`,
+			TimestampTZ{Time: time.Date(2001, time.February, 3, 4, 5, 6, 7000000, time.FixedZone("", -8*3600-9*60-10))}},
+		{`2001-02-03 04:05:06-08:09:10 BC`,
+			TimestampTZ{Time: time.Date(-2000, time.February, 3, 4, 5, 6, 0, time.FixedZone("", -8*3600-9*60-10))}},
+		{`2001-02-03 04:05:06.007000000-08:09:10 BC`,
+			TimestampTZ{Time: time.Date(-2000, time.February, 3, 4, 5, 6, 7000000, time.FixedZone("", -8*3600-9*60-10))}},
+	} {
+		value, err := tt.timestamptz.Value()
+
+		if err != nil {
+			t.Fatalf("Expected no error for %q, got %v", tt.timestamptz, err)
+		}
+		switch v := value.(type) {
+		case string:
+			if value != tt.str {
+				t.Errorf("Expected %v, got %v", tt.str, value)
+			}
+		case []byte:
+			if value = string(v); value != tt.str {
+				t.Errorf("Expected %v, got %v", tt.str, value)
+			}
+		}
+	}
+}
+
+// Two allocs each. One buffer, one interface{}.
+func BenchmarkTimestampTZValue(b *testing.B) {
+	v := TimestampTZ{Time: time.Date(2001, time.February, 3, 4, 5, 6, 0, time.UTC)}
+	w := TimestampTZ{Time: time.Date(2001, time.February, 3, 4, 5, 6, 0, time.FixedZone("", -8*3600-9*60-10))}
+	x := TimestampTZ{Time: time.Date(2001, time.February, 3, 4, 5, 6, 700800, time.FixedZone("", -8*3600-9*60-10))}
+	y := TimestampTZ{Time: time.Date(10000, time.February, 3, 4, 5, 6, 0, time.FixedZone("", -8*3600-9*60-10))}
+	z := TimestampTZ{Time: time.Date(-2000, time.February, 3, 4, 5, 6, 700800, time.FixedZone("", -8*3600-9*60-10))}
+
+	for i := 0; i < b.N; i++ {
+		v.Value()
+		w.Value()
+		x.Value()
+		y.Value()
+		z.Value()
+	}
+}
+
+// Two allocs each. One string, one interface{}.
+func BenchmarkTimestampTZValueInfinity(b *testing.B) {
+	x := TimestampTZ{Infinity: -1}
+	y := TimestampTZ{Infinity: 1}
+
+	for i := 0; i < b.N; i++ {
+		x.Value()
+		y.Value()
 	}
 }
