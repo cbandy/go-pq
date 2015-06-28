@@ -23,6 +23,22 @@ type ArrayValuer interface {
 // BoolArray represents a one-dimensional array of the PostgreSQL boolean type.
 type BoolArray []bool
 
+// Scan implements the sql.Scanner interface.
+func (a *BoolArray) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return a.scanBytes(src)
+	case string:
+		return a.scanBytes([]byte(src))
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to BoolArray", src)
+}
+
+func (a *BoolArray) scanBytes(src []byte) error {
+	return nil
+}
+
 // Value implements the driver.Valuer interface.
 func (a BoolArray) Value() (driver.Value, error) {
 	if a == nil {
@@ -54,6 +70,22 @@ func (a BoolArray) Value() (driver.Value, error) {
 
 // ByteaArray represents a one-dimensional array of the PostgreSQL bytea type.
 type ByteaArray [][]byte
+
+// Scan implements the sql.Scanner interface.
+func (a *ByteaArray) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return a.scanBytes(src)
+	case string:
+		return a.scanBytes([]byte(src))
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to ByteaArray", src)
+}
+
+func (a *ByteaArray) scanBytes(src []byte) error {
+	return nil
+}
 
 // Value implements the driver.Valuer interface. It uses the "hex" format which
 // is only supported on PostgreSQL 9.0 or newer.
@@ -91,6 +123,22 @@ func (a ByteaArray) Value() (driver.Value, error) {
 // Float64Array represents a one-dimensional array of the PostgreSQL double
 // precision type.
 type Float64Array []float64
+
+// Scan implements the sql.Scanner interface.
+func (a *Float64Array) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return a.scanBytes(src)
+	case string:
+		return a.scanBytes([]byte(src))
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to Float64Array", src)
+}
+
+func (a *Float64Array) scanBytes(src []byte) error {
+	return nil
+}
 
 // Value implements the driver.Valuer interface.
 func (a Float64Array) Value() (driver.Value, error) {
@@ -147,6 +195,22 @@ func (a GenericArray) Value() (driver.Value, error) {
 // Int64Array represents a one-dimensional array of the PostgreSQL integer types.
 type Int64Array []int64
 
+// Scan implements the sql.Scanner interface.
+func (a *Int64Array) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return a.scanBytes(src)
+	case string:
+		return a.scanBytes([]byte(src))
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to Int64Array", src)
+}
+
+func (a *Int64Array) scanBytes(src []byte) error {
+	return nil
+}
+
 // Value implements the driver.Valuer interface.
 func (a Int64Array) Value() (driver.Value, error) {
 	if a == nil {
@@ -173,6 +237,22 @@ func (a Int64Array) Value() (driver.Value, error) {
 
 // StringArray represents a one-dimensional array of the PostgreSQL character types.
 type StringArray []string
+
+// Scan implements the sql.Scanner interface.
+func (a *StringArray) Scan(src interface{}) error {
+	switch src := src.(type) {
+	case []byte:
+		return a.scanBytes(src)
+	case string:
+		return a.scanBytes([]byte(src))
+	}
+
+	return fmt.Errorf("pq: cannot convert %T to StringArray", src)
+}
+
+func (a *StringArray) scanBytes(src []byte) error {
+	return nil
+}
 
 // Value implements the driver.Valuer interface.
 func (a StringArray) Value() (driver.Value, error) {
