@@ -1,8 +1,8 @@
 package pq
 
 import (
-	"bytes"
 	"encoding/binary"
+	"bytes"
 
 	"github.com/lib/pq/oid"
 )
