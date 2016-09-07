@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -300,17 +301,13 @@ func TestInfinityTimestamp(t *testing.T) {
 	}
 	// yield []byte
 	for _, q := range tc {
-		var resultI interface{}
-		err = db.QueryRow(q.Query, q.Param).Scan(&resultI)
+		var result interface{}
+		err = db.QueryRow(q.Query, q.Param).Scan(&result)
 		if err != nil {
 			t.Errorf("Scanning -/+infinity, expected no error, got %q", err)
 		}
-		result, ok := resultI.([]byte)
-		if !ok {
-			t.Errorf("Scanning -/+infinity, expected []byte, got %#v", resultI)
-		}
-		if string(result) != q.ExpectedVal {
-			t.Errorf("Scanning -/+infinity, expected %q, got %q", q.ExpectedVal, result)
+		if !reflect.DeepEqual(result, []byte(q.ExpectedVal.(string))) {
+			t.Errorf("Scanning -/+infinity, expected []byte(%q), got %T(%q)", q.ExpectedVal, result, result)
 		}
 	}
 

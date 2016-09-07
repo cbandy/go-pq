@@ -52,6 +52,9 @@ type parameterStatus struct {
 	// the current location based on the TimeZone value of the session, if
 	// available
 	currentLocation *time.Location
+
+	// whether or not the server stores timestamps as eight-byte integers
+	integerDateTimes bool
 }
 
 type transactionStatus byte
@@ -668,7 +671,7 @@ func (cn *conn) simpleQuery(q string) (res *rows, err error) {
 
 // Decides which column formats to use for a prepared statement.  The input is
 // an array of type oids, one element per result column.
-func decideColumnFormats(colTyps []oid.Oid, forceText bool) (colFmts []format, colFmtData []byte) {
+func decideColumnFormats(ps *parameterStatus, colTyps []oid.Oid, forceText bool) (colFmts []format, colFmtData []byte) {
 	if len(colTyps) == 0 {
 		return nil, colFmtDataAllText
 	}
@@ -694,6 +697,16 @@ func decideColumnFormats(colTyps []oid.Oid, forceText bool) (colFmts []format, c
 		case oid.T_int2:
 			colFmts[i] = formatBinary
 			allText = false
+
+		case oid.T_timestamp:
+			fallthrough
+		case oid.T_timestamptz:
+			if ps.integerDateTimes {
+				colFmts[i] = formatBinary
+				allText = false
+			} else {
+				allBinary = false
+			}
 
 		default:
 			allBinary = false
@@ -731,7 +744,7 @@ func (cn *conn) prepareTo(q, stmtName string) *stmt {
 
 	cn.readParseResponse()
 	st.paramTyps, st.colNames, st.colTyps = cn.readStatementDescribeResponse()
-	st.colFmts, st.colFmtData = decideColumnFormats(st.colTyps, cn.disablePreparedBinaryResult)
+	st.colFmts, st.colFmtData = decideColumnFormats(&cn.parameterStatus, st.colTyps, cn.disablePreparedBinaryResult)
 	cn.readReadyForQuery()
 	return st
 }
@@ -1569,6 +1582,9 @@ func (c *conn) processParameterStatus(r *readBuf) {
 
 	param := r.string()
 	switch param {
+	case "integer_datetimes":
+		c.parameterStatus.integerDateTimes = r.string() == "on"
+
 	case "server_version":
 		var major1 int
 		var major2 int
