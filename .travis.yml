@@ -24,6 +24,10 @@ env:
     - PGVERSION=9.1
     - PGVERSION=9.0
 
+matrix:
+  allow_failures:
+    - go: master
+
 before_install:
   - ./.travis.sh postgresql_uninstall
   - ./.travis.sh pgdg_repository
